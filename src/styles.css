@@ -772,3 +772,57 @@ h3 {
     grid-template-columns: 1fr;
   }
 }
+
+.fret-range-options {
+  margin: 22px 0 4px;
+  padding: 0;
+  border: 0;
+}
+
+.fret-range-options legend {
+  margin-bottom: 8px;
+  color: #334155;
+  font-weight: 800;
+}
+
+.fret-range-options p {
+  color: #475569;
+  line-height: 1.5;
+}
+
+.fret-range-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(160px, 1fr));
+  gap: 12px;
+  margin-top: 12px;
+}
+
+.fret-range-grid label {
+  display: grid;
+  gap: 8px;
+  color: #334155;
+  font-weight: 800;
+}
+
+.fret-range-grid select {
+  width: 100%;
+  padding: 12px 14px;
+  border: 1px solid #cbd5e1;
+  border-radius: 16px;
+  background: #ffffff;
+  color: #111827;
+  font: inherit;
+  font-weight: 900;
+}
+
+.fret-range-summary {
+  margin: 12px 0 0;
+  color: #334155 !important;
+  font-weight: 800;
+}
+
+@media (max-width: 760px) {
+  .fret-range-grid {
+    grid-template-columns: 1fr;
+  }
+}

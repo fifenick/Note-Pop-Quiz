@@ -60,11 +60,14 @@ function formatElapsedTime(totalSeconds: number): string {
   return minutes === 0 ? `${seconds}s` : `${minutes}m ${String(seconds).padStart(2, '0')}s`;
 }
 
-function buildQuestionPool(selectedNotes: string[]): NotePosition[] {
+function buildQuestionPool(selectedNotes: string[], minFret: number, maxFret: number): NotePosition[] {
   const allowedNotes = new Set(selectedNotes);
+  const startFret = Math.max(0, Math.min(minFret, maxFret, MAX_FRET));
+  const endFret = Math.max(0, Math.min(Math.max(minFret, maxFret), MAX_FRET));
 
   return STRINGS.flatMap((stringName, stringIndex) =>
-    Array.from({ length: MAX_FRET + 1 }, (_, fret) => {
+    Array.from({ length: endFret - startFret + 1 }, (_, index) => {
+      const fret = startFret + index;
       const answer = noteAt(stringName, fret);
 
       return {
@@ -77,9 +80,15 @@ function buildQuestionPool(selectedNotes: string[]): NotePosition[] {
   );
 }
 
-function makeQuestion(id: number, selectedNotes: string[], previous?: Question): Question {
-  const pool = buildQuestionPool(selectedNotes);
-  const fallbackPool = buildQuestionPool(NOTE_ORDER);
+function makeQuestion(
+  id: number,
+  selectedNotes: string[],
+  minFret: number,
+  maxFret: number,
+  previous?: Question,
+): Question {
+  const pool = buildQuestionPool(selectedNotes, minFret, maxFret);
+  const fallbackPool = buildQuestionPool(NOTE_ORDER, minFret, maxFret);
   const availablePool = pool.length > 0 ? pool : fallbackPool;
 
   let position = availablePool[Math.floor(Math.random() * availablePool.length)];
@@ -159,8 +168,10 @@ export default function App() {
   const [status, setStatus] = useState<QuizStatus>('ready');
   const [secondsPerQuestion, setSecondsPerQuestion] = useState<number>(DEFAULT_SECONDS_PER_QUESTION);
   const [selectedNotes, setSelectedNotes] = useState<string[]>(() => getDefaultSelectedNotes());
+  const [minFret, setMinFret] = useState(0);
+  const [maxFret, setMaxFret] = useState(MAX_FRET);
   const [countdown, setCountdown] = useState(COUNTDOWN_SECONDS);
-  const [question, setQuestion] = useState<Question>(() => makeQuestion(1, getDefaultSelectedNotes()));
+  const [question, setQuestion] = useState<Question>(() => makeQuestion(1, getDefaultSelectedNotes(), 0, MAX_FRET));
   const [choices, setChoices] = useState<string[]>(() => getNoteChoices(question.answer));
   const [score, setScore] = useState(0);
   const [secondsLeft, setSecondsLeft] = useState(secondsPerQuestion);
@@ -183,8 +194,26 @@ export default function App() {
     return [...wrongStats].sort((a, b) => b.count - a.count || a.label.localeCompare(b.label)).slice(0, 3);
   }, [wrongStats]);
 
-  const selectedQuestionPool = useMemo(() => buildQuestionPool(selectedNotes), [selectedNotes]);
+  const selectedQuestionPool = useMemo(() => buildQuestionPool(selectedNotes, minFret, maxFret), [selectedNotes, minFret, maxFret]);
   const canStartQuiz = selectedNotes.length > 0 && selectedQuestionPool.length > 0;
+
+  function updateMinFret(value: number) {
+    const next = Math.max(0, Math.min(value, MAX_FRET));
+    setMinFret(next);
+
+    if (next > maxFret) {
+      setMaxFret(next);
+    }
+  }
+
+  function updateMaxFret(value: number) {
+    const next = Math.max(0, Math.min(value, MAX_FRET));
+    setMaxFret(next);
+
+    if (next < minFret) {
+      setMinFret(next);
+    }
+  }
 
   function toggleSelectedNote(note: string) {
     setSelectedNotes((current) => {
@@ -233,7 +262,7 @@ export default function App() {
   }
 
   function loadNextQuestion(nextNumber: number, previous?: Question) {
-    const nextQuestion = makeQuestion(nextNumber, selectedNotes, previous);
+    const nextQuestion = makeQuestion(nextNumber, selectedNotes, minFret, maxFret, previous);
     setQuestion(nextQuestion);
     setChoices(getNoteChoices(nextQuestion.answer));
     setSecondsLeft(secondsPerQuestion);
@@ -447,9 +476,9 @@ export default function App() {
         <section className="panel start-panel">
           <h2>Ready to practise?</h2>
           <p>
-            The quiz uses a standard 4-string bass in EADG tuning and asks notes from the open
-            string to fret 12. Choose a small set of notes for focused practice, or select all
-            notes for a full-neck challenge.
+            The quiz uses a standard 4-string bass in EADG tuning. Choose a small set of notes
+            and a fret range for focused practice, or select all notes and the full fret range
+            for a full-neck challenge.
           </p>
 
           <fieldset className="time-options">
@@ -474,6 +503,41 @@ export default function App() {
                 </label>
               ))}
             </div>
+          </fieldset>
+
+
+
+          <fieldset className="fret-range-options">
+            <legend>Frets to include in this run</legend>
+            <p>
+              Choose the fret range for the quiz. For example, selecting 1 to 3 will only ask
+              questions on frets 1, 2, and 3.
+            </p>
+
+            <div className="fret-range-grid">
+              <label>
+                <span>From fret</span>
+                <select value={minFret} onChange={(event) => updateMinFret(Number(event.target.value))}>
+                  {Array.from({ length: MAX_FRET + 1 }, (_, fret) => (
+                    <option key={fret} value={fret}>{fret === 0 ? 'Open' : fret}</option>
+                  ))}
+                </select>
+              </label>
+
+              <label>
+                <span>To fret</span>
+                <select value={maxFret} onChange={(event) => updateMaxFret(Number(event.target.value))}>
+                  {Array.from({ length: MAX_FRET + 1 }, (_, fret) => (
+                    <option key={fret} value={fret}>{fret === 0 ? 'Open' : fret}</option>
+                  ))}
+                </select>
+              </label>
+            </div>
+
+            <p className="fret-range-summary">
+              Testing {minFret === 0 ? 'open string' : `fret ${minFret}`} to {maxFret === 0 ? 'open string' : `fret ${maxFret}`}
+              {' '}· {selectedQuestionPool.length} matching neck position{selectedQuestionPool.length === 1 ? '' : 's'} available
+            </p>
           </fieldset>
 
           <fieldset className="note-options">
@@ -508,7 +572,7 @@ export default function App() {
             <p className="note-selection-summary">
               {selectedNotes.length === 0
                 ? 'Select at least one note to start.'
-                : `${selectedNotes.length} note${selectedNotes.length === 1 ? '' : 's'} selected · ${selectedQuestionPool.length} neck position${selectedQuestionPool.length === 1 ? '' : 's'} available`}
+                : `${selectedNotes.length} note${selectedNotes.length === 1 ? '' : 's'} selected · ${selectedQuestionPool.length} matching neck position${selectedQuestionPool.length === 1 ? '' : 's'} available`}
             </p>
           </fieldset>
 
